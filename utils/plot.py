@@ -23,7 +23,6 @@ $$H(s) = {tf_latex}$$
 
     H = sp.lambdify(omega, s_to_jw, "numpy")
 
-    # Genero frecuencias
     frequencies = np.logspace(0, 7, 10000)  # 10^0 to 10^7 Hz
     frequencies_rad = frequencies * 2 * np.pi
 
@@ -38,7 +37,7 @@ $$H(s) = {tf_latex}$$
     # phase to degrees
     phase_degrees = np.degrees(phase)
 
-    # Ploteo
+    # Plot
     _, ax1 = plt.subplots(figsize=(12, 6))
 
     ax1.semilogx(frequencies, magnitude_db, color="blue")
@@ -61,20 +60,16 @@ $$H(s) = {tf_latex}$$
 def plot_polos_ceros(tf, omega_0, values):
     s = sp.symbols("s")
 
-    # Sustituir valores numéricos en la función de transferencia
     tf_num = tf.subs(values)
-
-    # Obtener numerador y denominador como polinomios en s
     num, den = sp.fraction(sp.simplify(tf_num))
 
-    # Obtener coeficientes del numerador y denominador
     num_poly = sp.Poly(num, s)
     den_poly = sp.Poly(den, s)
 
     num_coeffs = np.array(num_poly.all_coeffs(), dtype=np.complex128)
     den_coeffs = np.array(den_poly.all_coeffs(), dtype=np.complex128)
 
-    # Calcular ceros y polos numéricamente
+    # Get Poles and Zeros
     ceros = np.roots(num_coeffs)
     polos = np.roots(den_coeffs)
 
@@ -83,7 +78,7 @@ def plot_polos_ceros(tf, omega_0, values):
     plt.axhline(0, color="black", lw=0.7)
     plt.axvline(0, color="black", lw=0.7)
 
-    # Graficar ceros (círculos azules)
+    # Plot Zeros with Blue circles
     plt.plot(
         ceros.real,
         ceros.imag,
@@ -94,7 +89,7 @@ def plot_polos_ceros(tf, omega_0, values):
         markeredgecolor="blue",
         markeredgewidth=2,
     )
-    # Graficar polos (cruces rojas)
+    # Plot Poles with Red Crosses
     plt.plot(
         polos.real,
         polos.imag,
@@ -105,7 +100,7 @@ def plot_polos_ceros(tf, omega_0, values):
         color="red",
     )
 
-    # Graficar circunferencia de radio omega_0
+    # Plot Circumference of radius omega_0
     radius = float(omega_0)
     circle = plt.Circle(
         (0.0, 0.0),
