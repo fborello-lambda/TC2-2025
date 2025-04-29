@@ -23,7 +23,6 @@ $$H(s) = {tf_latex}$$
 
     H = sp.lambdify(omega, s_to_jw, "numpy")
 
-    # Genero frecuencias
     frequencies = np.logspace(0, 7, 10000)  # 10^0 to 10^7 Hz
     frequencies_rad = frequencies * 2 * np.pi
 
@@ -38,7 +37,7 @@ $$H(s) = {tf_latex}$$
     # phase to degrees
     phase_degrees = np.degrees(phase)
 
-    # Ploteo
+    # Plot
     _, ax1 = plt.subplots(figsize=(12, 6))
 
     ax1.semilogx(frequencies, magnitude_db, color="blue")
@@ -56,3 +55,70 @@ $$H(s) = {tf_latex}$$
     plt.tight_layout()
     plt.show()
     return (magnitude_db, frequencies, phase)
+
+
+def plot_polos_ceros(tf, omega_0, values):
+    s = sp.symbols("s")
+
+    tf_num = tf.subs(values)
+    num, den = sp.fraction(sp.simplify(tf_num))
+
+    num_poly = sp.Poly(num, s)
+    den_poly = sp.Poly(den, s)
+
+    num_coeffs = np.array(num_poly.all_coeffs(), dtype=np.complex128)
+    den_coeffs = np.array(den_poly.all_coeffs(), dtype=np.complex128)
+
+    # Get Poles and Zeros
+    ceros = np.roots(num_coeffs)
+    polos = np.roots(den_coeffs)
+
+    # Preparar la figura
+    plt.figure(figsize=(8, 8))
+    plt.axhline(0, color="black", lw=0.7)
+    plt.axvline(0, color="black", lw=0.7)
+
+    # Plot Zeros with Blue circles
+    plt.plot(
+        ceros.real,
+        ceros.imag,
+        "o",
+        markersize=10,
+        label="Ceros",
+        markerfacecolor="none",
+        markeredgecolor="blue",
+        markeredgewidth=2,
+    )
+    # Plot Poles with Red Crosses
+    plt.plot(
+        polos.real,
+        polos.imag,
+        "x",
+        markersize=10,
+        label="Polos",
+        markeredgewidth=2,
+        color="red",
+    )
+
+    # Plot Circumference of radius omega_0
+    radius = float(omega_0)
+    circle = plt.Circle(
+        (0.0, 0.0),
+        radius,
+        edgecolor="black",
+        facecolor="none",
+        lw=0.5,
+    )
+    plt.gca().add_artist(circle)
+
+    plt.xlim(-radius * 1.2, radius * 1.2)
+    plt.ylim(-radius * 1.2, radius * 1.2)
+
+    plt.xlabel("Parte Real")
+    plt.ylabel("Parte Imaginaria")
+    plt.title("Diagrama de Polos y Ceros")
+    plt.grid(True, which="both", linestyle="--", linewidth=0.7)
+    plt.legend()
+    plt.show()
+
+    return polos, ceros
