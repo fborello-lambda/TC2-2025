@@ -61,19 +61,24 @@ def display_sos_tf(tf):
     den_poly = sp.Poly(den, s)
     num_coeffs = [float(c) for c in num_poly.all_coeffs()]
     den_coeffs = [float(c) for c in den_poly.all_coeffs()]
-    k = num_coeffs[0] / den_coeffs[0] if den_coeffs[0] != 0 else 1.0
 
-    # Remove leading coefficient from numerator for monic display
+    # Normalize so denominator is monic
+    den_lead = den_coeffs[0]
+    num_coeffs = [c / den_lead for c in num_coeffs]
+    den_coeffs = [c / den_lead for c in den_coeffs]
+
+    # k is now the first numerator coefficient (after normalization)
+    k = num_coeffs[0] if len(num_coeffs) == len(den_coeffs) else 1.0
+
     num_sos = to_sos(num_coeffs)
     den_sos = to_sos(den_coeffs)
 
     # Check if numerator is just a constant 1 or -1
-    is_num_constant = all(abs(c) < 1e-14 for c in num_coeffs[1:])  # all except first
+    is_num_constant = all(abs(c) < 1e-14 for c in num_coeffs[1:])
     num_const = num_coeffs[0] if is_num_constant else None
 
     k_latex = format_coeff(k)
     if is_num_constant and abs(num_const) == 1:
-        # Only show k and denominator
         tf_sos_latex = f"{k_latex} \\frac{{1}}{{{sos_latex(den_sos)}}}"
     else:
         tf_sos_latex = (
