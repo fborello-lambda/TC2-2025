@@ -3,17 +3,23 @@ from scipy import signal as sig
 from IPython.display import display, Markdown
 
 
-def get_sos_sections(b, a):
-    sos = sig.tf2sos(b, a)
+def bessel_thomson_sos_sects(b, a):
+    sos = sig.tf2sos(b, a, analog=True)
     s = sp.Symbol("s")
 
+    ret = []
+
     for i, section in enumerate(sos, 1):
-        b0, b1, b2, a0, a1, a2 = section
+        _, _, _, a0, a1, a2 = section
 
-        num = b2 * s**2 + b1 * s + b0
-        den = a2 * s**2 + a1 * s + a0
+        num = a2
+        den = a0 * s**2 + a1 * s + a2
 
-        den_leading = sp.LC(den, s)
-        H_i_monic = sp.simplify((num / den_leading) / (den / den_leading))
-
+        # Make denominator monic if a0 is not 1 or 0
+        if a0 != 0 and a0 != 1:
+            num = num / a0
+            den = den / a0
+        H_i_monic = sp.simplify(num / den)
+        ret.append(H_i_monic)
         display(Markdown(f"$$H_{{{i}}}(s) = {sp.latex(H_i_monic.evalf(3))}$$"))
+    return ret
