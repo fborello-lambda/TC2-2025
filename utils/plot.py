@@ -221,7 +221,7 @@ def eng_format(val, unit=""):
     import numpy as np
 
     if val == 0:
-        return f"0 {unit}"
+        return f"0" + unit
     exp = int(np.floor(np.log10(abs(val)) // 3 * 3))
     scaled = val / 10**exp
     prefixes = {
@@ -236,4 +236,4 @@ def eng_format(val, unit=""):
         12: "T",
     }
     prefix = prefixes.get(exp, f"E{exp}")
-    return f"{scaled:.3g} {prefix}{unit}"
+    return f"{scaled:.3g} {prefix}" + unit
