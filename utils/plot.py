@@ -5,14 +5,6 @@ from IPython.display import display, Markdown
 from scipy import signal
 
 
-def to_sos(coeffs):
-    # Pad with zeros on the left to make length a multiple of 3
-    n = len(coeffs)
-    pad = (3 - n % 3) % 3
-    coeffs = [0] * pad + coeffs
-    return [coeffs[i : i + 3] for i in range(0, len(coeffs), 3)]
-
-
 def format_coeff(c):
     s = f"{c:.3g}"
     if "e" in s:
@@ -24,37 +16,7 @@ def format_coeff(c):
     return s
 
 
-def sos_latex(sos):
-    terms = []
-    for a, b, c in sos:
-        # Make monic if possible (if a != 0)
-        if abs(a) > 1e-14:
-            b_monic = b / a
-            c_monic = c / a
-            a_disp = 1.0
-        else:
-            b_monic = b
-            c_monic = c
-            a_disp = 0.0
-
-        poly = []
-        # s^2 term
-        if abs(a_disp) > 1e-14:
-            poly.append("s^2")
-        # s term
-        if abs(b_monic) > 1e-14:
-            sign_b = "+" if b_monic >= 0 else "-"
-            poly.append(f" {sign_b} {format_coeff(abs(b_monic))}s")
-        # constant term
-        if abs(c_monic) > 1e-14 or not poly:
-            sign_c = "+" if c_monic >= 0 else "-"
-            poly.append(f" {sign_c} {format_coeff(abs(c_monic))}")
-        poly_str = "".join(poly).replace("+ -", "- ").replace("- -", "+ ")
-        terms.append(f"({poly_str.strip()})")
-    return r" \cdot ".join(terms)
-
-
-def display_sos_tf(tf):
+def display_monic_tf(tf):
     s = sp.symbols("s")
     num, den = sp.fraction(sp.simplify(tf))
     num_poly = sp.Poly(num, s)
@@ -62,36 +24,41 @@ def display_sos_tf(tf):
     num_coeffs = [float(c) for c in num_poly.all_coeffs()]
     den_coeffs = [float(c) for c in den_poly.all_coeffs()]
 
-    # Normalize so denominator is monic
+    # Make both numerator and denominator monic
+    num_lead = num_coeffs[0]
     den_lead = den_coeffs[0]
-    num_coeffs = [c / den_lead for c in num_coeffs]
-    den_coeffs = [c / den_lead for c in den_coeffs]
+    k = num_lead / den_lead
+    num_coeffs_monic = [c / num_lead for c in num_coeffs]
+    den_coeffs_monic = [c / den_lead for c in den_coeffs]
 
-    # k is now the first numerator coefficient (after normalization)
-    k = num_coeffs[0] if len(num_coeffs) == len(den_coeffs) else 1.0
+    # Build LaTeX polynomials
+    def poly_latex(coeffs):
+        terms = []
+        deg = len(coeffs) - 1
+        for i, c in enumerate(coeffs):
+            power = deg - i
+            if abs(c) < 1e-14:
+                continue
+            if power == 0:
+                terms.append(f"{format_coeff(c)}")
+            elif power == 1:
+                terms.append(f"{format_coeff(c)}s")
+            else:
+                terms.append(f"{format_coeff(c)}s^{power}")
+        return " + ".join(terms).replace("+ -", "- ")
 
-    num_sos = to_sos(num_coeffs)
-    den_sos = to_sos(den_coeffs)
-
-    # Check if numerator is just a constant 1 or -1
-    is_num_constant = all(abs(c) < 1e-14 for c in num_coeffs[1:])
-    num_const = num_coeffs[0] if is_num_constant else None
-
+    num_latex = poly_latex(num_coeffs_monic)
+    den_latex = poly_latex(den_coeffs_monic)
     k_latex = format_coeff(k)
-    if is_num_constant and abs(num_const) == 1:
-        tf_sos_latex = f"{k_latex} \\frac{{1}}{{{sos_latex(den_sos)}}}"
-    else:
-        tf_sos_latex = (
-            f"{k_latex} \\frac{{{sos_latex(num_sos)}}}{{{sos_latex(den_sos)}}}"
-        )
-    display(Markdown(f"$$H(s) = {tf_sos_latex}$$"))
+    tf_latex = f"{k_latex} \\frac{{{num_latex}}}{{{den_latex}}}"
+    display(Markdown(f"$$H(s) = {tf_latex}$$"))
 
 
 def plot_tf(tf, values, f_center):
     s = sp.symbols("s")
     tf_numeric = tf.subs(values)
 
-    display_sos_tf(tf_numeric)
+    display_monic_tf(tf_numeric)
 
     # Get numerator and denominator as polynomials in s
     num, den = sp.fraction(sp.simplify(tf_numeric))
@@ -204,3 +171,69 @@ def plot_polos_ceros(tf, omega_0, values):
     plt.show()
 
     return polos, ceros
+
+
+def plot_delay(tf, values, f_center):
+    s = sp.symbols("s")
+    tf_numeric = tf.subs(values)
+
+    # Get numerator and denominator as polynomials in s
+    num, den = sp.fraction(sp.simplify(tf_numeric))
+    num_poly = sp.Poly(num, s)
+    den_poly = sp.Poly(den, s)
+    num_coeffs = [float(c) for c in num_poly.all_coeffs()]
+    den_coeffs = [float(c) for c in den_poly.all_coeffs()]
+
+    # Frequency range: center at f_center, show equal decades left/right
+    decades_left = 4
+    decades_right = 4
+    points_per_decade = 2000
+    f_min = f_center / 10**decades_left
+    f_max = f_center * 10**decades_right
+    frequencies = np.logspace(
+        np.log10(f_min),
+        np.log10(f_max),
+        int(points_per_decade * (decades_left + decades_right)),
+    )
+    w = 2 * np.pi * frequencies
+
+    # Use scipy.signal.TransferFunction for Bode plot
+    system = signal.TransferFunction(num_coeffs, den_coeffs)
+    _, _, phase = signal.bode(system, w=w)
+    phase[np.abs(phase) < 1e-6] = 0
+    phase_rad = np.deg2rad(phase)
+    delay = -np.gradient(phase_rad, w)
+
+    # Plot
+    _, ax1 = plt.subplots(figsize=(12, 6))
+    ax1.semilogx(frequencies, delay, color="green")
+    ax1.set_xlabel("Frequency (Hz)")
+    ax1.set_ylabel("Delay (s)", color="green")
+    ax1.tick_params(axis="y", labelcolor="green")
+    ax1.grid(which="both", linestyle="--", linewidth=0.7)
+    plt.title("Delay Plot")
+    plt.tight_layout()
+    plt.show()
+    return (delay, frequencies)
+
+
+def eng_format(val, unit=""):
+    import numpy as np
+
+    if val == 0:
+        return f"0" + unit
+    exp = int(np.floor(np.log10(abs(val)) // 3 * 3))
+    scaled = val / 10**exp
+    prefixes = {
+        -12: "p",
+        -9: "n",
+        -6: "μ",
+        -3: "m",
+        0: "",
+        3: "k",
+        6: "M",
+        9: "G",
+        12: "T",
+    }
+    prefix = prefixes.get(exp, f"E{exp}")
+    return f"{scaled:.3g} {prefix}" + unit
