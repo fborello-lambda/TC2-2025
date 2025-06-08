@@ -61,45 +61,68 @@ def synth_ackerberg_mossberg(wz="R3", components={"C": 1, "R1": 1, "R2": 1, "R3"
     return T, symbols
 
 
-def get_values_ackerberg_mossberg(
+def synth_ackerberg_mossberg_vff_bp(_Q, _w0, _gain):
+    """
+    Se utiliza el concepto de Voltage-FeedForward, explicado en el Schaumann Section 5.2 page 213
+    """
+    w0, Q, k, b, g = sp.symbols("\omega_0 Q k b g", real=True, positive=True)
+    s = sp.symbols("s")
+
+    # Defino la transferencia T(s)
+    num = -(s * w0 * (k - b))
+    den = s**2 + s * w0 / Q + w0**2
+    T = num / den
+
+    # Non-Inverting (Ver Table 5.3)
+    k_expr = 0
+    b_expr = g / Q
+    b_expr = b_expr.subs({Q: _Q, g: _gain})
+
+    values = {k: k_expr, Q: _Q, w0: _w0, b: b_expr}
+    T = T.subs(values)
+    return T, b_expr
+
+
+def get_values_ackerberg_mossberg_vff_bp(
+    _ww,
+    _gain,
+    _Q,
     C_forced=10e-9,
-    _w0=1,
-    _k=1,
-    _Q=1,
 ):
-    R1, R2, R3, C = sp.symbols("R_1 R_2 R_3 C", real=True, positive=True)
-    w0, Q, k = sp.symbols("\omega_0 Q k", real=True, positive=True)
-    C_expr = 1 / (R3 * w0)
-    C_val_n = C_expr.subs({w0: 1, R3: 1})
-    R3_expr = 1 / (C * w0)
+    R, C = sp.symbols("R C", real=True, positive=True)
+    w0, k = sp.symbols("\omega_0 k", real=True, positive=True)
+    C_expr = 1 / (R * w0)
+    C_val_n = C_expr.subs({w0: 1, R: 1})
+    R_expr = 1 / (C * w0)
+    b = _gain / _Q
 
     C_forced_eng = uplt.eng_format(C_forced, "F")
 
     # -------------------------------------------------------
 
-    R3_val = R3_expr.subs({C: C_forced, w0: _w0})
-    R3_eng = uplt.eng_format(float(R3_val), "\Omega")
+    R_val = R_expr.subs({C: C_forced, w0: _ww})
+    R_eng = uplt.eng_format(float(R_val), "\Omega")
 
-    R1_val = R3_val / _k
-    R1_eng = uplt.eng_format(float(R1_val), "\Omega")
-
-    R2_val = _Q * R3_val
+    R2_val = _Q * R_val
     R2_eng = uplt.eng_format(float(R2_val), "\Omega")
+
+    R_vff_val = R_val * b
+    R_vff_eng = uplt.eng_format(float(R_vff_val), "\Omega")
 
     # -------------------------------------------------------
 
-    C_check = C_val_n / (_w0 * R3_val)
+    C_check = C_val_n / (_ww * R_val)
 
     markdown_text = rf"""
 ### Valor numérico normalizado:
 $$C = {C_val_n.evalf(3)}$$
-### Valor numérico de $R_3$ seteando $C = {C_forced_eng}$ y $\omega_n \omega_0 = {_w0:.2f}[rad/s]$:
-$$R_3 = {R3_eng}$$
-### Valor numérico de $R_1 = \frac{{R_3}}{{k}}$:
-$$R_1 = {R1_eng}$$
-### Valor numérico de $R_2 = Q \cdot R_3$:
+### Valor numérico de $R$ seteando $C = {C_forced_eng}$ y $\omega_n \omega_0 = {_ww:.2f}[rad/s]$:
+$$R = {R_eng}$$
+### Valor numérico de $R_2 = Q \cdot R$:
 $$R_2 = {R2_eng}$$
-### Verificación de resultados ($C = \frac{{C_{{\text{{normalizado}}}}}}{{\omega_0 \; \omega_n \; \Omega_Z}}$):
+### Valor numérico de $R_{{vff}} =  \frac{{R}}{{b}}$:
+$$R_{{vff}}  = {R_vff_eng}$$
+### Verificación de resultados ($C = \frac{{C_{{\text{{normalizado}}}}}}{{\omega_0 \; \omega_n \;}}$):
 $$C = {uplt.eng_format(float(C_check), "F")}$$
 """
     display(Markdown(markdown_text))
