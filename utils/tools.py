@@ -4,7 +4,7 @@ from IPython.display import display, Markdown
 
 
 def bessel_thomson_sos_sects(b, a):
-    lp_sos_sections(b, a)
+    return lp_sos_sections(b, a)
 
 
 def lp_sos_sections(b, a):
