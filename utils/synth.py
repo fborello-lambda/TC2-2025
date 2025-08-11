@@ -61,6 +61,50 @@ def synth_ackerberg_mossberg(wz="R3", components={"C": 1, "R1": 1, "R2": 1, "R3"
     return T, symbols
 
 
+def get_values_ackerberg_mossberg(
+    C_forced=10e-9,
+    _w0=1,
+    _k=1,
+    _Q=1,
+):
+    R1, R2, R3, C = sp.symbols("R_1 R_2 R_3 C", real=True, positive=True)
+    w0, Q, k = sp.symbols("\omega_0 Q k", real=True, positive=True)
+    C_expr = 1 / (R3 * w0)
+    C_val_n = C_expr.subs({w0: 1, R3: 1})
+    R3_expr = 1 / (C * w0)
+
+    C_forced_eng = uplt.eng_format(C_forced, "F")
+
+    # -------------------------------------------------------
+
+    R3_val = R3_expr.subs({C: C_forced, w0: _w0})
+    R3_eng = uplt.eng_format(float(R3_val), "\Omega")
+
+    R1_val = R3_val / _k
+    R1_eng = uplt.eng_format(float(R1_val), "\Omega")
+
+    R2_val = _Q * R3_val
+    R2_eng = uplt.eng_format(float(R2_val), "\Omega")
+
+    # -------------------------------------------------------
+
+    C_check = C_val_n / (_w0 * R3_val)
+
+    markdown_text = rf"""
+### Valor numérico normalizado:
+$$C = {C_val_n.evalf(3)}$$
+### Valor numérico de $R_3$ seteando $C = {C_forced_eng}$ y $\omega_n \omega_0 = {_w0:.2f}[rad/s]$:
+$$R_3 = {R3_eng}$$
+### Valor numérico de $R_1 = \frac{{R_3}}{{k}}$:
+$$R_1 = {R1_eng}$$
+### Valor numérico de $R_2 = Q \cdot R_3$:
+$$R_2 = {R2_eng}$$
+### Verificación de resultados ($C = \frac{{C_{{\text{{normalizado}}}}}}{{\omega_0 \; \omega_n \; \Omega_Z}}$):
+$$C = {uplt.eng_format(float(C_check), "F")}$$
+"""
+    display(Markdown(markdown_text))
+
+
 def synth_ackerberg_mossberg_vff_bp(_Q, _w0, _gain):
     """
     Se utiliza el concepto de Voltage-FeedForward, explicado en el Schaumann Section 5.2 page 213
